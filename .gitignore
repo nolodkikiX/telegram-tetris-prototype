@@ -1,0 +1,20 @@
+node_modules/
+dist/
+.vite/
+.DS_Store
+*.log
+
+# Local Netlify folder
+.netlify
+
+# OpenClaw workspace-local files
+.openclaw/
+AGENTS.md
+BOOTSTRAP.md
+HEARTBEAT.md
+IDENTITY.md
+SOUL.md
+TOOLS.md
+USER.md
+
+docs/game/OVERNIGHT_COORDINATION.md
