@@ -54,7 +54,8 @@ interface TouchControlVisual {
 
 export class GameScene extends Phaser.Scene {
   private gameState!: GameState;
-  private boardGraphics!: Phaser.GameObjects.Graphics;
+  private boardFrameGraphics!: Phaser.GameObjects.Graphics;
+  private boardLockedCellsGraphics!: Phaser.GameObjects.Graphics;
   private ghostPieceGraphics!: Phaser.GameObjects.Graphics;
   private hardDropImpactGraphics!: Phaser.GameObjects.Graphics;
   private activePieceGraphics!: Phaser.GameObjects.Graphics;
@@ -100,6 +101,10 @@ export class GameScene extends Phaser.Scene {
   private startKey?: Phaser.Input.Keyboard.Key;
   private pauseKey?: Phaser.Input.Keyboard.Key;
   private visibilityHandler?: () => void;
+  private lastBoardSnapshot = '';
+  private lastPreviewSnapshot = '';
+  private lastActivePieceSnapshot = '';
+  private lastGhostPieceSnapshot = '';
 
   constructor() {
     super('GameScene');
@@ -116,7 +121,8 @@ export class GameScene extends Phaser.Scene {
     this.gameState = createInitialGameState();
     this.previousLinesCleared = this.gameState.linesCleared;
 
-    this.boardGraphics = this.add.graphics();
+    this.boardFrameGraphics = this.add.graphics();
+    this.boardLockedCellsGraphics = this.add.graphics();
     this.ghostPieceGraphics = this.add.graphics();
     this.hardDropImpactGraphics = this.add.graphics();
     this.activePieceGraphics = this.add.graphics();
@@ -214,10 +220,10 @@ export class GameScene extends Phaser.Scene {
       }
     });
 
-    this.renderBoard();
-    this.renderGhostPiece();
-    this.renderActivePiece();
-    this.renderNextPiecePreview();
+    this.renderBoardFrame();
+    this.renderLockedBoardCells(true);
+    this.renderFallingPieceState();
+    this.renderNextPiecePreview(true);
     this.refreshHud();
   }
 
@@ -303,12 +309,12 @@ export class GameScene extends Phaser.Scene {
 
     if (this.cursors?.left && Phaser.Input.Keyboard.JustDown(this.cursors.left)) {
       movePiece(this.gameState, -1);
-      this.renderActivePiece();
+      this.renderFallingPieceState();
     }
 
     if (this.cursors?.right && Phaser.Input.Keyboard.JustDown(this.cursors.right)) {
       movePiece(this.gameState, 1);
-      this.renderActivePiece();
+      this.renderFallingPieceState();
     }
 
     if (this.cursors?.down && Phaser.Input.Keyboard.JustDown(this.cursors.down)) {
@@ -318,7 +324,7 @@ export class GameScene extends Phaser.Scene {
 
     if (this.rotateKey && Phaser.Input.Keyboard.JustDown(this.rotateKey)) {
       rotatePiece(this.gameState);
-      this.renderActivePiece();
+      this.renderFallingPieceState();
     }
 
     if (this.spaceKey && Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
@@ -379,7 +385,7 @@ export class GameScene extends Phaser.Scene {
       }
 
       movePiece(this.gameState, -1);
-      this.renderActivePiece();
+      this.renderFallingPieceState();
     }, 52));
 
     this.touchActionControls.push(this.createControlButton(180, mainRowY, '⟳', () => {
@@ -398,7 +404,7 @@ export class GameScene extends Phaser.Scene {
       }
 
       rotatePiece(this.gameState);
-      this.renderActivePiece();
+      this.renderFallingPieceState();
     }, 52));
 
     this.touchActionControls.push(this.createControlButton(232, mainRowY, '→', () => {
@@ -417,7 +423,7 @@ export class GameScene extends Phaser.Scene {
       }
 
       movePiece(this.gameState, 1);
-      this.renderActivePiece();
+      this.renderFallingPieceState();
     }, 52));
 
     this.touchActionControls.push(this.createControlButton(318, mainRowY, 'DROP', () => {
@@ -540,6 +546,7 @@ export class GameScene extends Phaser.Scene {
           activePiece.y + y + dropDistance,
           0xffffff,
           0.45,
+          false,
         );
       }
     }
@@ -610,6 +617,10 @@ export class GameScene extends Phaser.Scene {
   private restartGame(): void {
     resetGameState(this.gameState);
     this.previousLinesCleared = this.gameState.linesCleared;
+    this.lastBoardSnapshot = '';
+    this.lastPreviewSnapshot = '';
+    this.lastActivePieceSnapshot = '';
+    this.lastGhostPieceSnapshot = '';
     this.incrementSessionsPlayed();
     this.gravityTimer = 0;
     this.isManuallyPaused = false;
@@ -622,13 +633,17 @@ export class GameScene extends Phaser.Scene {
   }
 
   private refreshView(): void {
-    this.renderBoard();
-    this.renderGhostPiece();
-    this.renderActivePiece();
+    this.renderLockedBoardCells();
+    this.renderFallingPieceState();
     this.renderNextPiecePreview();
     this.refreshHud();
     this.syncGameOverState();
     this.maybeTriggerLineClearFlash();
+  }
+
+  private renderFallingPieceState(): void {
+    this.renderGhostPiece();
+    this.renderActivePiece();
   }
 
   private incrementSessionsPlayed(): void {
@@ -674,7 +689,7 @@ export class GameScene extends Phaser.Scene {
     this.totalLinesCleared += clearedNow;
     saveTotalLinesCleared(this.totalLinesCleared);
     this.startTotalLinesText.setText(`Total lines cleared: ${this.totalLinesCleared}`);
-    this.lineClearFlash.setAlpha(0.32);
+    this.lineClearFlash.setAlpha(0.22);
     triggerHapticFeedback(16);
     this.showLineClearScorePop(LINE_CLEAR_SCORE_POP[clearedNow] ?? clearedNow * 200);
 
@@ -682,7 +697,7 @@ export class GameScene extends Phaser.Scene {
     this.tweens.add({
       targets: this.lineClearFlash,
       alpha: 0,
-      duration: 120,
+      duration: 90,
       ease: 'Linear',
     });
   }
@@ -695,17 +710,17 @@ export class GameScene extends Phaser.Scene {
     this.tweens.killTweensOf(this.lineClearScorePopText);
     this.tweens.add({
       targets: this.lineClearScorePopText,
-      y: 36,
+      y: 40,
       alpha: 0,
-      duration: 380,
-      ease: 'Cubic.Out',
+      duration: 240,
+      ease: 'Linear',
     });
   }
 
   private renderGhostPiece(): void {
-    this.ghostPieceGraphics.clear();
-
     if (this.gameState.gameOver || !this.hasStarted) {
+      this.lastGhostPieceSnapshot = '';
+      this.ghostPieceGraphics.clear();
       return;
     }
 
@@ -719,8 +734,18 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (dropDistance === 0) {
+      this.lastGhostPieceSnapshot = '';
+      this.ghostPieceGraphics.clear();
       return;
     }
+
+    const ghostSnapshot = `${activePiece.color}:${activePiece.x},${activePiece.y},${dropDistance}:${activePiece.matrix.map((row) => row.join('')).join('|')}`;
+    if (ghostSnapshot === this.lastGhostPieceSnapshot) {
+      return;
+    }
+
+    this.lastGhostPieceSnapshot = ghostSnapshot;
+    this.ghostPieceGraphics.clear();
 
     for (let y = 0; y < activePiece.matrix.length; y += 1) {
       for (let x = 0; x < activePiece.matrix[y].length; x += 1) {
@@ -736,12 +761,20 @@ export class GameScene extends Phaser.Scene {
           activePiece.y + y + dropDistance,
           activePiece.color,
           0.22,
+          false,
         );
       }
     }
   }
 
-  private renderNextPiecePreview(): void {
+  private renderNextPiecePreview(force = false): void {
+    const { nextPiece } = this.gameState;
+    const nextSnapshot = `${nextPiece.color}:${nextPiece.matrix.map((row) => row.join('')).join('|')}`;
+    if (!force && nextSnapshot === this.lastPreviewSnapshot) {
+      return;
+    }
+
+    this.lastPreviewSnapshot = nextSnapshot;
     this.previewGraphics.clear();
 
     const boxWidth = 42;
@@ -754,7 +787,6 @@ export class GameScene extends Phaser.Scene {
     this.previewGraphics.lineStyle(2, 0x334155, 1);
     this.previewGraphics.strokeRect(boxX, boxY, boxWidth, boxHeight);
 
-    const { nextPiece } = this.gameState;
     const previewCellSize = 8;
     const matrixWidth = nextPiece.matrix[0].length;
     const matrixHeight = nextPiece.matrix.length;
@@ -987,27 +1019,42 @@ export class GameScene extends Phaser.Scene {
     return overlay;
   }
 
-  private renderBoard(): void {
-    this.boardGraphics.clear();
-
+  private renderBoardFrame(): void {
     const originX = Math.floor((GAME_WIDTH - BOARD_PIXEL_WIDTH) / 2);
     const originY = BOARD_ORIGIN_Y;
 
-    this.boardGraphics.fillStyle(0x0f172a, 1);
-    this.boardGraphics.fillRect(originX, originY, BOARD_PIXEL_WIDTH, BOARD_PIXEL_HEIGHT);
-    this.boardGraphics.lineStyle(2, 0x334155, 1);
-    this.boardGraphics.strokeRect(originX, originY, BOARD_PIXEL_WIDTH, BOARD_PIXEL_HEIGHT);
+    this.boardFrameGraphics.clear();
+    this.boardFrameGraphics.fillStyle(0x0f172a, 1);
+    this.boardFrameGraphics.fillRect(originX, originY, BOARD_PIXEL_WIDTH, BOARD_PIXEL_HEIGHT);
+    this.boardFrameGraphics.lineStyle(2, 0x334155, 1);
+    this.boardFrameGraphics.strokeRect(originX, originY, BOARD_PIXEL_WIDTH, BOARD_PIXEL_HEIGHT);
 
-    this.boardGraphics.lineStyle(1, 0x1e293b, 1);
+    this.boardFrameGraphics.lineStyle(1, 0x1e293b, 1);
     for (let col = 1; col < BOARD_COLS; col += 1) {
       const x = originX + col * CELL_SIZE;
-      this.boardGraphics.lineBetween(x, originY, x, originY + BOARD_PIXEL_HEIGHT);
+      this.boardFrameGraphics.lineBetween(x, originY, x, originY + BOARD_PIXEL_HEIGHT);
     }
 
     for (let row = 1; row < BOARD_ROWS; row += 1) {
       const y = originY + row * CELL_SIZE;
-      this.boardGraphics.lineBetween(originX, y, originX + BOARD_PIXEL_WIDTH, y);
+      this.boardFrameGraphics.lineBetween(originX, y, originX + BOARD_PIXEL_WIDTH, y);
     }
+  }
+
+  private renderLockedBoardCells(force = false): void {
+    const boardSnapshot = this.gameState.board
+      .map((row) => row.map((cell) => (cell === null ? '.' : cell.toString(16))).join(','))
+      .join(';');
+
+    if (!force && boardSnapshot === this.lastBoardSnapshot) {
+      return;
+    }
+
+    this.lastBoardSnapshot = boardSnapshot;
+    this.boardLockedCellsGraphics.clear();
+
+    const originX = Math.floor((GAME_WIDTH - BOARD_PIXEL_WIDTH) / 2);
+    const originY = BOARD_ORIGIN_Y;
 
     for (let y = 0; y < this.gameState.board.length; y += 1) {
       for (let x = 0; x < this.gameState.board[y].length; x += 1) {
@@ -1016,21 +1063,28 @@ export class GameScene extends Phaser.Scene {
           continue;
         }
 
-        this.drawCell(this.boardGraphics, originX, originY, x, y, cellColor);
+        this.drawCell(this.boardLockedCellsGraphics, originX, originY, x, y, cellColor);
       }
     }
   }
 
   private renderActivePiece(): void {
-    this.activePieceGraphics.clear();
-
     if (this.gameState.gameOver) {
+      this.lastActivePieceSnapshot = '';
+      this.activePieceGraphics.clear();
       return;
     }
 
     const originX = Math.floor((GAME_WIDTH - BOARD_PIXEL_WIDTH) / 2);
     const originY = BOARD_ORIGIN_Y;
     const { activePiece } = this.gameState;
+    const activeSnapshot = `${activePiece.color}:${activePiece.x},${activePiece.y}:${activePiece.matrix.map((row) => row.join('')).join('|')}`;
+    if (activeSnapshot === this.lastActivePieceSnapshot) {
+      return;
+    }
+
+    this.lastActivePieceSnapshot = activeSnapshot;
+    this.activePieceGraphics.clear();
 
     for (let y = 0; y < activePiece.matrix.length; y += 1) {
       for (let x = 0; x < activePiece.matrix[y].length; x += 1) {
@@ -1058,14 +1112,21 @@ export class GameScene extends Phaser.Scene {
     boardY: number,
     color: number,
     alpha = 1,
+    withStroke = true,
   ): void {
     const x = originX + boardX * CELL_SIZE;
     const y = originY + boardY * CELL_SIZE;
     const padding = 1;
+    const size = CELL_SIZE - padding * 2;
 
     graphics.fillStyle(color, alpha);
-    graphics.fillRect(x + padding, y + padding, CELL_SIZE - padding * 2, CELL_SIZE - padding * 2);
+    graphics.fillRect(x + padding, y + padding, size, size);
+
+    if (!withStroke) {
+      return;
+    }
+
     graphics.lineStyle(1, 0xe5e7eb, 0.15);
-    graphics.strokeRect(x + padding, y + padding, CELL_SIZE - padding * 2, CELL_SIZE - padding * 2);
+    graphics.strokeRect(x + padding, y + padding, size, size);
   }
 }
