@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "updatedAt": "2026-04-13T14:08:53.404Z",
+  "entries": {
+    "memory:memory/2026-04-13.md:1:6": {
+      "key": "memory:memory/2026-04-13.md:1:6",
+      "path": "memory/2026-04-13.md",
+      "startLine": 1,
+      "endLine": 6,
+      "source": "memory",
+      "snippet": "- Telegram Mini App falling-block prototype: FPS is now reported as normal after two accepted performance passes; remaining user-visible issue shifted to UI clarity on high-DPI devices, specifically iPhone 16 Pro in Telegram Mini App. - Clarity pass was accepted: added capped Phaser render resolution based on devicePixelRatio (capped at 2), enabled autoRound, and increased Phaser.Text resolution in GameScene via applyUiTextResolution(); README updated; fresh production asset hash after this pass was index-szObg1cR.js. - Current production URL remains https://telegram-tetris-prototype-1776008249.netlify.app and is used by the Telegram Mini App bot path. - Local uncommitted files after clarity",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 0.0000016923048284072134,
+      "maxScore": 0.0000016923048284072134,
+      "firstRecalledAt": "2026-04-13T14:08:53.404Z",
+      "lastRecalledAt": "2026-04-13T14:08:53.404Z",
+      "queryHashes": [
+        "46b49b495194"
+      ],
+      "recallDays": [
+        "2026-04-13"
+      ],
+      "conceptTags": [
+        "falling-block",
+        "user-visible",
+        "high-dpi",
+        "phaser.text",
+        "index-szobg1cr.js",
+        "telegram",
+        "mini",
+        "app"
+      ]
+    }
+  }
+}
