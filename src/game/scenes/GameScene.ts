@@ -38,6 +38,7 @@ import {
   type GameState,
 } from '../core/gameState';
 import { canPlacePiece } from '../core/board';
+import { applyUiTextClarity } from '../ui/textClarity';
 
 const BASE_GRAVITY_INTERVAL_MS = 700;
 const GRAVITY_STEP_LINES = 5;
@@ -211,6 +212,7 @@ export class GameScene extends Phaser.Scene {
 
     this.startOverlay = this.createStartOverlay();
     this.startOverlay.setVisible(true);
+    applyUiTextClarity(this.children.list);
 
     this.visibilityHandler = () => this.handleVisibilityChange();
     document.addEventListener('visibilitychange', this.visibilityHandler);
