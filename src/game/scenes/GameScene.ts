@@ -698,15 +698,17 @@ export class GameScene extends Phaser.Scene {
     this.lastPreviewSnapshot = nextSnapshot;
     this.previewGraphics.clear();
 
-    const boxWidth = 42;
-    const boxHeight = 42;
-    const boxX = GAME_WIDTH - boxWidth - 16;
-    const boxY = 100;
+    const boxWidth = 44;
+    const boxHeight = 44;
+    const boxX = GAME_WIDTH - 62;
+    const boxY = 98;
 
-    this.previewGraphics.fillStyle(0x0f172a, 1);
-    this.previewGraphics.fillRect(boxX, boxY, boxWidth, boxHeight);
-    this.previewGraphics.lineStyle(2, 0x334155, 1);
-    this.previewGraphics.strokeRect(boxX, boxY, boxWidth, boxHeight);
+    this.previewGraphics.fillStyle(LIQUID_GLASS_TOKENS.hudGlassFillAlt, 0.88);
+    this.previewGraphics.fillRoundedRect(boxX, boxY, boxWidth, boxHeight, 12);
+    this.previewGraphics.lineStyle(1, LIQUID_GLASS_TOKENS.hudGlassHighlight, 0.28);
+    this.previewGraphics.strokeRoundedRect(boxX + 1, boxY + 1, boxWidth - 2, boxHeight - 2, 11);
+    this.previewGraphics.lineStyle(1, LIQUID_GLASS_TOKENS.hudGlassStroke, 0.62);
+    this.previewGraphics.strokeRoundedRect(boxX, boxY, boxWidth, boxHeight, 12);
 
     const previewCellSize = 8;
     const matrixWidth = nextPiece.matrix[0].length;
