@@ -52,4 +52,5 @@ The UI shows a small runtime label, a short runtime-aware startup message appear
 - Telegram Mini App shell bootstrap is connected with quiet browser fallback if Telegram init fails
 - runtime label indicates Telegram Mini App vs Browser preview
 - a minimal start overlay shows title, local stats including last score, last level, and last lines, desktop/touch hints, a small haptics toggle, and a start CTA
+- UI text clarity is tuned for high-DPI displays with capped render/text resolution plus an extra text-only clarity pass so Telegram Mini App HUD and buttons stay sharper without undoing the FPS-focused optimizations
 - no backend

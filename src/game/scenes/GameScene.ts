@@ -6,7 +6,6 @@ import {
   BOARD_PIXEL_WIDTH,
   BOARD_ROWS,
   CELL_SIZE,
-  GAME_HEIGHT,
   GAME_WIDTH,
 } from '../../app/config';
 import { triggerHapticFeedback } from '../../app/haptics';
@@ -39,6 +38,18 @@ import {
 } from '../core/gameState';
 import { canPlacePiece } from '../core/board';
 import { createHud, showHudLineClearScorePop, updateHud, type HudElements } from '../ui/hud';
+import {
+  createGameOverOverlay,
+  createPausedOverlay,
+  createStartOverlay,
+} from '../ui/overlays';
+import {
+  createTouchControls,
+  refreshTouchActionControlState,
+  refreshTouchPauseControlState,
+  refreshTouchPauseToggleText,
+  type TouchControlVisual,
+} from '../ui/touchControls';
 import { applyUiTextClarity } from '../ui/textClarity';
 
 const BASE_GRAVITY_INTERVAL_MS = 700;
@@ -47,12 +58,6 @@ const GRAVITY_STEP_MS = 60;
 const MIN_GRAVITY_INTERVAL_MS = 260;
 const BOARD_ORIGIN_Y = 108;
 const LINE_CLEAR_SCORE_POP = [0, 100, 300, 500, 800];
-
-interface TouchControlVisual {
-  container: Phaser.GameObjects.Container;
-  background: Phaser.GameObjects.Rectangle;
-  text: Phaser.GameObjects.Text;
-}
 
 export class GameScene extends Phaser.Scene {
   private gameState!: GameState;
@@ -66,14 +71,12 @@ export class GameScene extends Phaser.Scene {
   private hud!: HudElements;
   private pausedOverlay!: Phaser.GameObjects.Container;
   private startOverlay!: Phaser.GameObjects.Container;
-  private startBestText!: Phaser.GameObjects.Text;
   private startLastScoreText!: Phaser.GameObjects.Text;
   private startLastLevelText!: Phaser.GameObjects.Text;
   private startLastLinesText!: Phaser.GameObjects.Text;
   private startSessionsText!: Phaser.GameObjects.Text;
   private startTotalLinesText!: Phaser.GameObjects.Text;
   private startHapticsToggleText!: Phaser.GameObjects.Text;
-  private touchControlsPanel!: Phaser.GameObjects.Container;
   private touchActionControls: TouchControlVisual[] = [];
   private touchPauseControl!: TouchControlVisual;
   private gameOverOverlay!: Phaser.GameObjects.Container;
@@ -149,9 +152,9 @@ export class GameScene extends Phaser.Scene {
       fontSize: '22px',
     }).setOrigin(0.5);
 
-    const runtime = getAppRuntimeInfo();
-    this.add.text(GAME_WIDTH / 2, 44, runtime.label, {
-      color: runtime.isTelegram ? '#93c5fd' : '#cbd5e1',
+    const runtimeInfo = getAppRuntimeInfo();
+    this.add.text(GAME_WIDTH / 2, 44, runtimeInfo.label, {
+      color: runtimeInfo.isTelegram ? '#93c5fd' : '#cbd5e1',
       fontFamily: 'Arial',
       fontSize: '13px',
     }).setOrigin(0.5);
@@ -166,13 +169,44 @@ export class GameScene extends Phaser.Scene {
 
     this.createTouchControls();
 
-    this.gameOverOverlay = this.createGameOverOverlay();
+    const gameOverOverlay = createGameOverOverlay(this, {
+      onRestart: () => this.restartGame(),
+    });
+    this.gameOverOverlay = gameOverOverlay.container;
+    this.gameOverScoreText = gameOverOverlay.scoreText;
+    this.gameOverBestText = gameOverOverlay.bestText;
+    this.gameOverNewBestText = gameOverOverlay.newBestText;
     this.gameOverOverlay.setVisible(false);
 
-    this.pausedOverlay = this.createPausedOverlay();
+    const pausedOverlay = createPausedOverlay(this);
+    this.pausedOverlay = pausedOverlay.container;
     this.pausedOverlay.setVisible(false);
 
-    this.startOverlay = this.createStartOverlay();
+    const startOverlay = createStartOverlay(
+      this,
+      {
+        bestScore: this.bestScore,
+        lastScore: this.lastScore,
+        lastLevel: this.lastLevel,
+        lastLines: this.lastLines,
+        sessionsPlayed: this.sessionsPlayed,
+        totalLinesCleared: this.totalLinesCleared,
+        runtimeHint: runtimeInfo.isTelegram
+          ? 'Running inside Telegram Mini App, same core gameplay.'
+          : 'Local browser preview, progress saves only on this device.',
+      },
+      {
+        onToggleHaptics: () => this.toggleHaptics(),
+        onStart: () => this.startGame(),
+      },
+    );
+    this.startOverlay = startOverlay.container;
+    this.startLastScoreText = startOverlay.lastScoreText;
+    this.startLastLevelText = startOverlay.lastLevelText;
+    this.startLastLinesText = startOverlay.lastLinesText;
+    this.startSessionsText = startOverlay.sessionsText;
+    this.startTotalLinesText = startOverlay.totalLinesText;
+    this.startHapticsToggleText = startOverlay.hapticsToggleText;
     this.startOverlay.setVisible(true);
     applyUiTextClarity(this.children.list);
 
@@ -189,22 +223,6 @@ export class GameScene extends Phaser.Scene {
     this.renderFallingPieceState();
     this.renderNextPiecePreview(true);
     this.refreshHud();
-  }
-
-  private getBottomSafeAreaInset(): number {
-    try {
-      const probe = document.createElement('div');
-      probe.style.position = 'absolute';
-      probe.style.visibility = 'hidden';
-      probe.style.pointerEvents = 'none';
-      probe.style.paddingBottom = 'env(safe-area-inset-bottom, 0px)';
-      document.body.appendChild(probe);
-      const inset = Number.parseFloat(getComputedStyle(probe).paddingBottom || '0');
-      probe.remove();
-      return Number.isFinite(inset) ? inset : 0;
-    } catch {
-      return 0;
-    }
   }
 
   update(_time: number, delta: number): void {
@@ -297,163 +315,111 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createTouchControls(): void {
-    const safeBottom = this.getBottomSafeAreaInset();
-    const panelHeight = 92 + safeBottom;
-    const panelTop = GAME_HEIGHT - panelHeight;
-    const pauseRowY = panelTop + 18;
-    const mainRowY = panelTop + 56;
+    const touchControls = createTouchControls(this, {
+      onSoftDrop: () => {
+        if (this.startOverlay.visible) {
+          this.startGame();
+          return;
+        }
 
-    const panelBackground = this.add.rectangle(
-      GAME_WIDTH / 2,
-      panelTop + panelHeight / 2,
-      GAME_WIDTH,
-      panelHeight,
-      0x020617,
-      0.96,
-    ).setStrokeStyle(1, 0x1e293b, 1);
+        if (this.gameState.gameOver) {
+          this.restartGame();
+          return;
+        }
 
-    this.touchControlsPanel = this.add.container(0, 0, [panelBackground]);
+        if (this.isManuallyPaused) {
+          return;
+        }
 
-    this.touchActionControls.push(this.createControlButton(42, mainRowY, '▼', () => {
-      if (this.startOverlay.visible) {
-        this.startGame();
-        return;
-      }
+        softDrop(this.gameState);
+        this.refreshView();
+      },
+      onMoveLeft: () => {
+        if (this.startOverlay.visible) {
+          this.startGame();
+          return;
+        }
 
-      if (this.gameState.gameOver) {
-        this.restartGame();
-        return;
-      }
+        if (this.gameState.gameOver) {
+          this.restartGame();
+          return;
+        }
 
-      if (this.isManuallyPaused) {
-        return;
-      }
+        if (this.isManuallyPaused) {
+          return;
+        }
 
-      softDrop(this.gameState);
-      this.refreshView();
-    }, 56, '16px'));
+        movePiece(this.gameState, -1);
+        this.renderFallingPieceState();
+      },
+      onRotate: () => {
+        if (this.startOverlay.visible) {
+          this.startGame();
+          return;
+        }
 
-    this.touchActionControls.push(this.createControlButton(128, mainRowY, '←', () => {
-      if (this.startOverlay.visible) {
-        this.startGame();
-        return;
-      }
+        if (this.gameState.gameOver) {
+          this.restartGame();
+          return;
+        }
 
-      if (this.gameState.gameOver) {
-        this.restartGame();
-        return;
-      }
+        if (this.isManuallyPaused) {
+          return;
+        }
 
-      if (this.isManuallyPaused) {
-        return;
-      }
+        rotatePiece(this.gameState);
+        this.renderFallingPieceState();
+      },
+      onMoveRight: () => {
+        if (this.startOverlay.visible) {
+          this.startGame();
+          return;
+        }
 
-      movePiece(this.gameState, -1);
-      this.renderFallingPieceState();
-    }, 52));
+        if (this.gameState.gameOver) {
+          this.restartGame();
+          return;
+        }
 
-    this.touchActionControls.push(this.createControlButton(180, mainRowY, '⟳', () => {
-      if (this.startOverlay.visible) {
-        this.startGame();
-        return;
-      }
+        if (this.isManuallyPaused) {
+          return;
+        }
 
-      if (this.gameState.gameOver) {
-        this.restartGame();
-        return;
-      }
+        movePiece(this.gameState, 1);
+        this.renderFallingPieceState();
+      },
+      onHardDrop: () => {
+        if (this.startOverlay.visible) {
+          this.startGame();
+          return;
+        }
 
-      if (this.isManuallyPaused) {
-        return;
-      }
+        if (this.gameState.gameOver) {
+          this.restartGame();
+          return;
+        }
 
-      rotatePiece(this.gameState);
-      this.renderFallingPieceState();
-    }, 52));
+        if (this.isManuallyPaused) {
+          return;
+        }
 
-    this.touchActionControls.push(this.createControlButton(232, mainRowY, '→', () => {
-      if (this.startOverlay.visible) {
-        this.startGame();
-        return;
-      }
+        this.performHardDrop();
+      },
+      onPauseToggle: () => {
+        if (this.startOverlay.visible || this.gameState.gameOver) {
+          return;
+        }
 
-      if (this.gameState.gameOver) {
-        this.restartGame();
-        return;
-      }
+        this.toggleManualPause();
+      },
+    });
 
-      if (this.isManuallyPaused) {
-        return;
-      }
-
-      movePiece(this.gameState, 1);
-      this.renderFallingPieceState();
-    }, 52));
-
-    this.touchActionControls.push(this.createControlButton(318, mainRowY, 'DROP', () => {
-      if (this.startOverlay.visible) {
-        this.startGame();
-        return;
-      }
-
-      if (this.gameState.gameOver) {
-        this.restartGame();
-        return;
-      }
-
-      if (this.isManuallyPaused) {
-        return;
-      }
-
-      this.performHardDrop();
-    }, 64, '14px'));
-
-    this.touchPauseControl = this.createControlButton(318, pauseRowY, 'Pause', () => {
-      if (this.startOverlay.visible || this.gameState.gameOver) {
-        return;
-      }
-
-      this.toggleManualPause();
-    }, 64, '13px');
-
-    this.touchControlsPanel.add([
-      ...this.touchActionControls.map((control) => control.container),
-      this.touchPauseControl.container,
-    ]);
+    this.touchActionControls = touchControls.actionControls;
+    this.touchPauseControl = touchControls.pauseControl;
 
     this.refreshTouchPauseToggleText();
     this.refreshTouchPauseControlState();
     this.refreshTouchActionControlState();
-  }
-
-  private createControlButton(
-    x: number,
-    y: number,
-    label: string,
-    onPress: () => void,
-    width = 52,
-    fontSize?: string,
-  ): TouchControlVisual {
-    const button = this.add.container(x, y);
-    const bg = this.add.rectangle(0, 0, width, 44, 0x1e293b, 0.95)
-      .setStrokeStyle(2, 0x475569, 1)
-      .setInteractive({ useHandCursor: true });
-
-    const text = this.add.text(0, 0, label, {
-      color: '#f8fafc',
-      fontFamily: 'Arial',
-      fontSize: fontSize ?? (label === 'DROP' ? '14px' : '20px'),
-    }).setOrigin(0.5);
-
-    bg.on('pointerdown', () => {
-      bg.setFillStyle(0x334155, 1);
-      onPress();
-    });
-    bg.on('pointerup', () => bg.setFillStyle(0x1e293b, 0.95));
-    bg.on('pointerout', () => bg.setFillStyle(0x1e293b, 0.95));
-
-    button.add([bg, text]);
-    return { container: button, background: bg, text };
   }
 
   private toggleManualPause(): void {
@@ -629,20 +595,15 @@ export class GameScene extends Phaser.Scene {
   }
 
   private refreshTouchPauseToggleText(): void {
-    this.touchPauseControl.text.setText(this.isManuallyPaused ? 'Resume' : 'Pause');
+    refreshTouchPauseToggleText(this.touchPauseControl, this.isManuallyPaused);
   }
 
   private refreshTouchPauseControlState(): void {
-    const isAvailable = this.hasStarted && !this.gameState.gameOver;
-    this.touchPauseControl.container.setAlpha(isAvailable ? 1 : 0.35);
+    refreshTouchPauseControlState(this.touchPauseControl, this.hasStarted && !this.gameState.gameOver);
   }
 
   private refreshTouchActionControlState(): void {
-    const alpha = this.isManuallyPaused ? 0.35 : 1;
-
-    for (const control of this.touchActionControls) {
-      control.container.setAlpha(alpha);
-    }
+    refreshTouchActionControlState(this.touchActionControls, this.isManuallyPaused);
   }
 
   private maybeTriggerLineClearFlash(): void {
@@ -762,216 +723,6 @@ export class GameScene extends Phaser.Scene {
         this.previewGraphics.strokeRect(cellX + 1, cellY + 1, previewCellSize - 2, previewCellSize - 2);
       }
     }
-  }
-
-  private createStartOverlay(): Phaser.GameObjects.Container {
-    const overlay = this.add.container(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 4);
-    const background = this.add.rectangle(0, 0, 268, 286, 0x020617, 0.94);
-    background.setStrokeStyle(2, 0x60a5fa, 1);
-
-    const title = this.add.text(0, -46, 'Telegram Tetris', {
-      color: '#f9fafb',
-      fontFamily: 'Arial',
-      fontSize: '28px',
-    }).setOrigin(0.5);
-
-    this.startBestText = this.add.text(0, -20, `Best score: ${this.bestScore}`, {
-      color: '#cbd5e1',
-      fontFamily: 'Arial',
-      fontSize: '16px',
-    }).setOrigin(0.5);
-
-    this.startLastScoreText = this.add.text(0, -1, `Last score: ${this.lastScore}`, {
-      color: '#cbd5e1',
-      fontFamily: 'Arial',
-      fontSize: '14px',
-    }).setOrigin(0.5);
-
-    this.startLastLevelText = this.add.text(0, 17, `Last level: ${this.lastLevel}`, {
-      color: '#cbd5e1',
-      fontFamily: 'Arial',
-      fontSize: '14px',
-    }).setOrigin(0.5);
-
-    this.startLastLinesText = this.add.text(0, 35, `Last lines: ${this.lastLines}`, {
-      color: '#cbd5e1',
-      fontFamily: 'Arial',
-      fontSize: '14px',
-    }).setOrigin(0.5);
-
-    this.startSessionsText = this.add.text(0, 55, `Sessions played: ${this.sessionsPlayed}`, {
-      color: '#94a3b8',
-      fontFamily: 'Arial',
-      fontSize: '14px',
-    }).setOrigin(0.5);
-
-    this.startTotalLinesText = this.add.text(0, 75, `Total lines cleared: ${this.totalLinesCleared}`, {
-      color: '#94a3b8',
-      fontFamily: 'Arial',
-      fontSize: '14px',
-    }).setOrigin(0.5);
-
-    const objectiveHint = this.add.text(0, 100, 'Stack pieces and clear full lines.', {
-      color: '#93c5fd',
-      fontFamily: 'Arial',
-      fontSize: '15px',
-      align: 'center',
-      wordWrap: { width: 220 },
-    }).setOrigin(0.5);
-
-    const desktopHint = this.add.text(0, 128, 'Desktop: arrows move, Space drops, P pauses.', {
-      color: '#cbd5e1',
-      fontFamily: 'Arial',
-      fontSize: '13px',
-      align: 'center',
-      wordWrap: { width: 228 },
-    }).setOrigin(0.5);
-
-    const touchHint = this.add.text(0, 148, 'Touch: use the buttons below to move, rotate, drop.', {
-      color: '#cbd5e1',
-      fontFamily: 'Arial',
-      fontSize: '13px',
-      align: 'center',
-      wordWrap: { width: 228 },
-    }).setOrigin(0.5);
-
-    const runtime = getAppRuntimeInfo();
-    const runtimeHint = this.add.text(
-      0,
-      168,
-      runtime.isTelegram
-        ? 'Running inside Telegram Mini App, same core gameplay.'
-        : 'Local browser preview, progress saves only on this device.',
-      {
-        color: '#94a3b8',
-        fontFamily: 'Arial',
-        fontSize: '12px',
-        align: 'center',
-        wordWrap: { width: 228 },
-      },
-    ).setOrigin(0.5);
-
-    this.startHapticsToggleText = this.add.text(0, 192, '', {
-      color: '#f8fafc',
-      fontFamily: 'Arial',
-      fontSize: '14px',
-      backgroundColor: '#0f172a',
-      padding: { left: 10, right: 10, top: 6, bottom: 6 },
-    }).setOrigin(0.5);
-    this.startHapticsToggleText.setInteractive({ useHandCursor: true });
-    this.startHapticsToggleText.on('pointerdown', () => this.toggleHaptics());
-    this.refreshHapticsToggleText();
-
-    const cta = this.add.text(0, 228, 'Press Enter or tap move, rotate, or drop', {
-      color: '#f8fafc',
-      fontFamily: 'Arial',
-      fontSize: '15px',
-      backgroundColor: '#1d4ed8',
-      padding: { left: 14, right: 14, top: 8, bottom: 8 },
-    }).setOrigin(0.5);
-    cta.setInteractive({ useHandCursor: true });
-    cta.on('pointerdown', () => this.startGame());
-
-    overlay.add([
-      background,
-      title,
-      this.startBestText,
-      this.startLastScoreText,
-      this.startLastLevelText,
-      this.startLastLinesText,
-      this.startSessionsText,
-      this.startTotalLinesText,
-      objectiveHint,
-      desktopHint,
-      touchHint,
-      runtimeHint,
-      this.startHapticsToggleText,
-      cta,
-    ]);
-    return overlay;
-  }
-
-  private createPausedOverlay(): Phaser.GameObjects.Container {
-    const overlay = this.add.container(GAME_WIDTH / 2, BOARD_ORIGIN_Y + 36);
-    const background = this.add.rectangle(0, 0, 138, 48, 0x020617, 0.9);
-    background.setStrokeStyle(1, 0xfbbf24, 1);
-
-    const label = this.add.text(0, -10, 'Paused', {
-      color: '#fef3c7',
-      fontFamily: 'Arial',
-      fontSize: '15px',
-    }).setOrigin(0.5);
-
-    const hint = this.add.text(0, 10, 'P or tap Resume', {
-      color: '#fde68a',
-      fontFamily: 'Arial',
-      fontSize: '12px',
-    }).setOrigin(0.5);
-
-    overlay.add([background, label, hint]);
-    return overlay;
-  }
-
-  private createGameOverOverlay(): Phaser.GameObjects.Container {
-    const overlay = this.add.container(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 18);
-    const background = this.add.rectangle(0, 0, 270, 228, 0x020617, 0.94);
-    background.setStrokeStyle(2, 0xf87171, 1);
-
-    const title = this.add.text(0, -62, 'Game Over', {
-      color: '#f9fafb',
-      fontFamily: 'Arial',
-      fontSize: '28px',
-    }).setOrigin(0.5);
-
-    const hint = this.add.text(0, -4, 'Press Enter, R, or tap move, rotate, or drop', {
-      color: '#d1d5db',
-      fontFamily: 'Arial',
-      fontSize: '18px',
-    }).setOrigin(0.5);
-
-    this.gameOverScoreText = this.add.text(0, 34, '', {
-      color: '#93c5fd',
-      fontFamily: 'Arial',
-      fontSize: '16px',
-      align: 'center',
-    }).setOrigin(0.5);
-
-    this.gameOverBestText = this.add.text(0, 64, '', {
-      color: '#cbd5e1',
-      fontFamily: 'Arial',
-      fontSize: '15px',
-      align: 'center',
-    }).setOrigin(0.5);
-
-    this.gameOverNewBestText = this.add.text(0, 88, 'New best!', {
-      color: '#facc15',
-      fontFamily: 'Arial',
-      fontSize: '17px',
-      fontStyle: 'bold',
-      align: 'center',
-    }).setOrigin(0.5);
-    this.gameOverNewBestText.setVisible(false);
-
-    const restartCta = this.add.text(0, 112, 'Restart', {
-      color: '#f8fafc',
-      fontFamily: 'Arial',
-      fontSize: '16px',
-      backgroundColor: '#dc2626',
-      padding: { left: 18, right: 18, top: 8, bottom: 8 },
-    }).setOrigin(0.5);
-    restartCta.setInteractive({ useHandCursor: true });
-    restartCta.on('pointerdown', () => this.restartGame());
-
-    overlay.add([
-      background,
-      title,
-      hint,
-      this.gameOverScoreText,
-      this.gameOverBestText,
-      this.gameOverNewBestText,
-      restartCta,
-    ]);
-    return overlay;
   }
 
   private renderBoardFrame(): void {
