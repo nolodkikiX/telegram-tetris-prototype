@@ -6,6 +6,7 @@ import {
   BOARD_PIXEL_WIDTH,
   BOARD_ROWS,
   CELL_SIZE,
+  GAME_HEIGHT,
   GAME_WIDTH,
 } from '../../app/config';
 import { triggerHapticFeedback } from '../../app/haptics';
@@ -51,6 +52,7 @@ import {
   type TouchControlVisual,
 } from '../ui/touchControls';
 import { applyUiTextClarity } from '../ui/textClarity';
+import { LIQUID_GLASS_TOKENS } from '../ui/visualTokens';
 
 const BASE_GRAVITY_INTERVAL_MS = 700;
 const GRAVITY_STEP_LINES = 5;
@@ -61,6 +63,7 @@ const LINE_CLEAR_SCORE_POP = [0, 100, 300, 500, 800];
 
 export class GameScene extends Phaser.Scene {
   private gameState!: GameState;
+  private sceneBackgroundGraphics!: Phaser.GameObjects.Graphics;
   private boardFrameGraphics!: Phaser.GameObjects.Graphics;
   private boardLockedCellsGraphics!: Phaser.GameObjects.Graphics;
   private ghostPieceGraphics!: Phaser.GameObjects.Graphics;
@@ -122,6 +125,7 @@ export class GameScene extends Phaser.Scene {
     this.gameState = createInitialGameState();
     this.previousLinesCleared = this.gameState.linesCleared;
 
+    this.sceneBackgroundGraphics = this.add.graphics();
     this.boardFrameGraphics = this.add.graphics();
     this.boardLockedCellsGraphics = this.add.graphics();
     this.ghostPieceGraphics = this.add.graphics();
@@ -218,6 +222,7 @@ export class GameScene extends Phaser.Scene {
       }
     });
 
+    this.renderSceneBackground();
     this.renderBoardFrame();
     this.renderLockedBoardCells(true);
     this.renderFallingPieceState();
@@ -728,14 +733,75 @@ export class GameScene extends Phaser.Scene {
   private renderBoardFrame(): void {
     const originX = Math.floor((GAME_WIDTH - BOARD_PIXEL_WIDTH) / 2);
     const originY = BOARD_ORIGIN_Y;
+    const outerX = originX - LIQUID_GLASS_TOKENS.boardFrameInset;
+    const outerY = originY - LIQUID_GLASS_TOKENS.boardFrameInset;
+    const outerWidth = BOARD_PIXEL_WIDTH + LIQUID_GLASS_TOKENS.boardFrameInset * 2;
+    const outerHeight = BOARD_PIXEL_HEIGHT + LIQUID_GLASS_TOKENS.boardFrameInset * 2;
 
     this.boardFrameGraphics.clear();
-    this.boardFrameGraphics.fillStyle(0x0f172a, 1);
+    this.boardFrameGraphics.fillStyle(
+      LIQUID_GLASS_TOKENS.boardShadow,
+      LIQUID_GLASS_TOKENS.boardShadowAlpha,
+    );
+    this.boardFrameGraphics.fillRoundedRect(
+      outerX + 4,
+      outerY + 10,
+      outerWidth,
+      outerHeight,
+      LIQUID_GLASS_TOKENS.boardRadius,
+    );
+
+    this.boardFrameGraphics.fillStyle(
+      LIQUID_GLASS_TOKENS.ambientGlowPrimary,
+      LIQUID_GLASS_TOKENS.boardGlowAlpha,
+    );
+    this.boardFrameGraphics.fillRoundedRect(
+      outerX - 3,
+      outerY - 3,
+      outerWidth + 6,
+      outerHeight + 6,
+      LIQUID_GLASS_TOKENS.boardRadius + 2,
+    );
+
+    this.boardFrameGraphics.fillStyle(
+      LIQUID_GLASS_TOKENS.boardGlassFill,
+      LIQUID_GLASS_TOKENS.boardGlassAlpha,
+    );
+    this.boardFrameGraphics.fillRoundedRect(
+      outerX,
+      outerY,
+      outerWidth,
+      outerHeight,
+      LIQUID_GLASS_TOKENS.boardRadius,
+    );
+
+    this.boardFrameGraphics.lineStyle(2, LIQUID_GLASS_TOKENS.boardFrameStroke, 0.9);
+    this.boardFrameGraphics.strokeRoundedRect(
+      outerX,
+      outerY,
+      outerWidth,
+      outerHeight,
+      LIQUID_GLASS_TOKENS.boardRadius,
+    );
+
+    this.boardFrameGraphics.lineStyle(1, LIQUID_GLASS_TOKENS.boardGlassHighlight, 0.35);
+    this.boardFrameGraphics.strokeRoundedRect(
+      outerX + 2,
+      outerY + 2,
+      outerWidth - 4,
+      outerHeight - 4,
+      LIQUID_GLASS_TOKENS.boardRadius - 2,
+    );
+
+    this.boardFrameGraphics.fillStyle(
+      LIQUID_GLASS_TOKENS.boardGlassInnerFill,
+      LIQUID_GLASS_TOKENS.boardInnerAlpha,
+    );
     this.boardFrameGraphics.fillRect(originX, originY, BOARD_PIXEL_WIDTH, BOARD_PIXEL_HEIGHT);
-    this.boardFrameGraphics.lineStyle(2, 0x334155, 1);
+    this.boardFrameGraphics.lineStyle(2, LIQUID_GLASS_TOKENS.boardFrameInnerStroke, 0.65);
     this.boardFrameGraphics.strokeRect(originX, originY, BOARD_PIXEL_WIDTH, BOARD_PIXEL_HEIGHT);
 
-    this.boardFrameGraphics.lineStyle(1, 0x1e293b, 1);
+    this.boardFrameGraphics.lineStyle(1, LIQUID_GLASS_TOKENS.boardGridLine, 0.82);
     for (let col = 1; col < BOARD_COLS; col += 1) {
       const x = originX + col * CELL_SIZE;
       this.boardFrameGraphics.lineBetween(x, originY, x, originY + BOARD_PIXEL_HEIGHT);
@@ -745,6 +811,33 @@ export class GameScene extends Phaser.Scene {
       const y = originY + row * CELL_SIZE;
       this.boardFrameGraphics.lineBetween(originX, y, originX + BOARD_PIXEL_WIDTH, y);
     }
+  }
+
+  private renderSceneBackground(): void {
+    this.sceneBackgroundGraphics.clear();
+    this.sceneBackgroundGraphics.fillStyle(LIQUID_GLASS_TOKENS.sceneBackground, 1);
+    this.sceneBackgroundGraphics.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+    this.sceneBackgroundGraphics.fillStyle(
+      LIQUID_GLASS_TOKENS.ambientGlowPrimary,
+      LIQUID_GLASS_TOKENS.ambientOrbAlpha,
+    );
+    this.sceneBackgroundGraphics.fillCircle(86, 84, 92);
+
+    this.sceneBackgroundGraphics.fillStyle(
+      LIQUID_GLASS_TOKENS.ambientGlowSecondary,
+      0.1,
+    );
+    this.sceneBackgroundGraphics.fillCircle(GAME_WIDTH - 54, 156, 98);
+
+    this.sceneBackgroundGraphics.fillStyle(
+      LIQUID_GLASS_TOKENS.ambientGlowTertiary,
+      0.08,
+    );
+    this.sceneBackgroundGraphics.fillCircle(GAME_WIDTH / 2, 472, 132);
+
+    this.sceneBackgroundGraphics.fillStyle(LIQUID_GLASS_TOKENS.sceneVignette, 0.3);
+    this.sceneBackgroundGraphics.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
   }
 
   private renderLockedBoardCells(force = false): void {

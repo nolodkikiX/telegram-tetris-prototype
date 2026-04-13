@@ -1,6 +1,6 @@
 export const GAME_WIDTH = 360;
 export const GAME_HEIGHT = 640;
-export const GAME_BACKGROUND = '#111827';
+export const GAME_BACKGROUND = '#060816';
 
 export const BOARD_COLS = 10;
 export const BOARD_ROWS = 20;
