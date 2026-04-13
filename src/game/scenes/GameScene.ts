@@ -38,6 +38,7 @@ import {
   type GameState,
 } from '../core/gameState';
 import { canPlacePiece } from '../core/board';
+import { createHud, showHudLineClearScorePop, updateHud, type HudElements } from '../ui/hud';
 import { applyUiTextClarity } from '../ui/textClarity';
 
 const BASE_GRAVITY_INTERVAL_MS = 700;
@@ -62,11 +63,7 @@ export class GameScene extends Phaser.Scene {
   private activePieceGraphics!: Phaser.GameObjects.Graphics;
   private previewGraphics!: Phaser.GameObjects.Graphics;
   private lineClearFlash!: Phaser.GameObjects.Rectangle;
-  private lineClearScorePopText!: Phaser.GameObjects.Text;
-  private hudScoreText!: Phaser.GameObjects.Text;
-  private hudLinesText!: Phaser.GameObjects.Text;
-  private hudBestText!: Phaser.GameObjects.Text;
-  private hudLevelText!: Phaser.GameObjects.Text;
+  private hud!: HudElements;
   private pausedOverlay!: Phaser.GameObjects.Container;
   private startOverlay!: Phaser.GameObjects.Container;
   private startBestText!: Phaser.GameObjects.Text;
@@ -159,42 +156,7 @@ export class GameScene extends Phaser.Scene {
       fontSize: '13px',
     }).setOrigin(0.5);
 
-    this.hudScoreText = this.add.text(20, 66, 'Score: 0', {
-      color: '#f9fafb',
-      fontFamily: 'Arial',
-      fontSize: '18px',
-    });
-
-    this.hudBestText = this.add.text(20, 86, `Best: ${this.bestScore}`, {
-      color: '#cbd5e1',
-      fontFamily: 'Arial',
-      fontSize: '15px',
-    });
-
-    this.hudLevelText = this.add.text(20, 104, 'Level: 1', {
-      color: '#93c5fd',
-      fontFamily: 'Arial',
-      fontSize: '14px',
-    });
-
-    this.lineClearScorePopText = this.add.text(88, 48, '', {
-      color: '#facc15',
-      fontFamily: 'Arial',
-      fontSize: '16px',
-      fontStyle: 'bold',
-    }).setAlpha(0);
-
-    this.hudLinesText = this.add.text(GAME_WIDTH - 20, 66, 'Lines: 0', {
-      color: '#f9fafb',
-      fontFamily: 'Arial',
-      fontSize: '18px',
-    }).setOrigin(1, 0);
-
-    this.add.text(GAME_WIDTH - 20, 86, 'Next', {
-      color: '#cbd5e1',
-      fontFamily: 'Arial',
-      fontSize: '15px',
-    }).setOrigin(1, 0);
+    this.hud = createHud(this, this.bestScore);
 
     this.add.text(GAME_WIDTH / 2, 122, 'Desktop: ← → ↑ ↓ Space, P pause, R restart', {
       color: '#94a3b8',
@@ -571,10 +533,12 @@ export class GameScene extends Phaser.Scene {
   }
 
   private refreshHud(): void {
-    this.hudScoreText.setText(`Score: ${this.gameState.score}`);
-    this.hudBestText.setText(`Best: ${this.bestScore}`);
-    this.hudLevelText.setText(`Level: ${this.getSpeedLevel()}`);
-    this.hudLinesText.setText(`Lines: ${this.gameState.linesCleared}`);
+    updateHud(this.hud, {
+      score: this.gameState.score,
+      bestScore: this.bestScore,
+      level: this.getSpeedLevel(),
+      linesCleared: this.gameState.linesCleared,
+    });
   }
 
   private getSpeedLevel(): number {
@@ -705,18 +669,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private showLineClearScorePop(points: number): void {
-    this.lineClearScorePopText.setText(`+${points}`);
-    this.lineClearScorePopText.setPosition(88, 48);
-    this.lineClearScorePopText.setAlpha(1);
-
-    this.tweens.killTweensOf(this.lineClearScorePopText);
-    this.tweens.add({
-      targets: this.lineClearScorePopText,
-      y: 40,
-      alpha: 0,
-      duration: 240,
-      ease: 'Linear',
-    });
+    showHudLineClearScorePop(this, this.hud, points);
   }
 
   private renderGhostPiece(): void {
