@@ -45,7 +45,6 @@ export function softDrop(state: GameState): void {
 
   if (canPlacePiece(state.board, state.activePiece, 0, 1)) {
     state.activePiece.y += 1;
-    state.score += 1;
     return;
   }
 
@@ -63,7 +62,6 @@ export function hardDrop(state: GameState): void {
   }
 
   state.activePiece.y += droppedRows;
-  state.score += droppedRows * 2;
   lockActivePieceAndSpawn(state);
 }
 
