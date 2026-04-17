@@ -39,10 +39,29 @@ function createGlassCard(
   return container;
 }
 
+export const NEXT_PREVIEW_LAYOUT = {
+  cardX: GAME_WIDTH - 40,
+  cardY: 160,
+  cardWidth: 62,
+  cardHeight: 74,
+  labelX: GAME_WIDTH - 67,
+  labelY: 128,
+  boxX: GAME_WIDTH - 62,
+  boxY: 138,
+  boxWidth: 44,
+  boxHeight: 44,
+} as const;
+
 export function createHud(scene: Phaser.Scene, bestScore: number): HudElements {
   const leftCard = createGlassCard(scene, 74, 88, 116, 64);
   const rightCard = createGlassCard(scene, GAME_WIDTH - 60, 88, 92, 64);
-  const nextCard = createGlassCard(scene, GAME_WIDTH - 40, 115, 62, 74);
+  const nextCard = createGlassCard(
+    scene,
+    NEXT_PREVIEW_LAYOUT.cardX,
+    NEXT_PREVIEW_LAYOUT.cardY,
+    NEXT_PREVIEW_LAYOUT.cardWidth,
+    NEXT_PREVIEW_LAYOUT.cardHeight,
+  );
 
   scene.add.text(28, 58, 'SCORE', {
     color: LIQUID_GLASS_TOKENS.hudLabelText,
@@ -111,7 +130,7 @@ export function createHud(scene: Phaser.Scene, bestScore: number): HudElements {
     fontStyle: 'bold',
   });
 
-  const nextLabelText = scene.add.text(GAME_WIDTH - 67, 82, 'NEXT', {
+  const nextLabelText = scene.add.text(NEXT_PREVIEW_LAYOUT.labelX, NEXT_PREVIEW_LAYOUT.labelY, 'NEXT', {
     color: LIQUID_GLASS_TOKENS.hudLabelText,
     fontFamily: 'Arial',
     fontSize: '10px',

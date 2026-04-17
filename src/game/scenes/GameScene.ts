@@ -10,7 +10,6 @@ import {
   GAME_WIDTH,
 } from '../../app/config';
 import { triggerHapticFeedback } from '../../app/haptics';
-import { getAppRuntimeInfo } from '../../app/runtime';
 import {
   loadBestScore,
   loadHapticsEnabled,
@@ -38,7 +37,13 @@ import {
   type GameState,
 } from '../core/gameState';
 import { canPlacePiece } from '../core/board';
-import { createHud, showHudLineClearScorePop, updateHud, type HudElements } from '../ui/hud';
+import {
+  createHud,
+  NEXT_PREVIEW_LAYOUT,
+  showHudLineClearScorePop,
+  updateHud,
+  type HudElements,
+} from '../ui/hud';
 import {
   createGameOverOverlay,
   createPausedOverlay,
@@ -74,11 +79,7 @@ export class GameScene extends Phaser.Scene {
   private hud!: HudElements;
   private pausedOverlay!: Phaser.GameObjects.Container;
   private startOverlay!: Phaser.GameObjects.Container;
-  private startLastScoreText!: Phaser.GameObjects.Text;
-  private startLastLevelText!: Phaser.GameObjects.Text;
-  private startLastLinesText!: Phaser.GameObjects.Text;
-  private startSessionsText!: Phaser.GameObjects.Text;
-  private startTotalLinesText!: Phaser.GameObjects.Text;
+  private startBestText!: Phaser.GameObjects.Text;
   private startHapticsToggleText!: Phaser.GameObjects.Text;
   private touchActionControls: TouchControlVisual[] = [];
   private touchPauseControl!: TouchControlVisual;
@@ -90,9 +91,6 @@ export class GameScene extends Phaser.Scene {
   private isVisibilityPaused = false;
   private isManuallyPaused = false;
   private bestScore = 0;
-  private lastScore = 0;
-  private lastLevel = 0;
-  private lastLines = 0;
   private sessionsPlayed = 0;
   private totalLinesCleared = 0;
   private hapticsEnabled = true;
@@ -116,9 +114,9 @@ export class GameScene extends Phaser.Scene {
 
   create(): void {
     this.bestScore = loadBestScore();
-    this.lastScore = loadLastScore();
-    this.lastLevel = loadLastLevel();
-    this.lastLines = loadLastLines();
+    loadLastScore();
+    loadLastLevel();
+    loadLastLines();
     this.sessionsPlayed = loadSessionsPlayed();
     this.totalLinesCleared = loadTotalLinesCleared();
     this.hapticsEnabled = loadHapticsEnabled();
@@ -150,35 +148,8 @@ export class GameScene extends Phaser.Scene {
     this.startKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
     this.pauseKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.P);
 
-    this.add.text(GAME_WIDTH / 2, 22, 'Iteration 3 / Step AF', {
-      color: '#f9fafb',
-      fontFamily: 'Arial',
-      fontSize: '22px',
-    }).setOrigin(0.5);
-
-    const runtimeInfo = getAppRuntimeInfo();
-    this.add.text(GAME_WIDTH / 2, 44, runtimeInfo.label, {
-      color: runtimeInfo.isTelegram ? '#93c5fd' : '#cbd5e1',
-      fontFamily: 'Arial',
-      fontSize: '13px',
-    }).setOrigin(0.5);
-
     this.hud = createHud(this, this.bestScore);
-
-    this.add.text(GAME_WIDTH / 2, 122, 'Desktop: ← → ↑ ↓ Space, P pause, R restart', {
-      color: '#94a3b8',
-      fontFamily: 'Arial',
-      fontSize: '13px',
-    }).setOrigin(0.5);
     this.createTouchControls();
-    this.children.list.forEach((child) => {
-      if (
-        child instanceof Phaser.GameObjects.Text
-        && child.text.startsWith('Desktop:')
-      ) {
-        child.setVisible(false);
-      }
-    });
 
     const gameOverOverlay = createGameOverOverlay(this, {
       onRestart: () => this.restartGame(),
@@ -197,14 +168,6 @@ export class GameScene extends Phaser.Scene {
       this,
       {
         bestScore: this.bestScore,
-        lastScore: this.lastScore,
-        lastLevel: this.lastLevel,
-        lastLines: this.lastLines,
-        sessionsPlayed: this.sessionsPlayed,
-        totalLinesCleared: this.totalLinesCleared,
-        runtimeHint: runtimeInfo.isTelegram
-          ? 'Running inside Telegram Mini App, same core gameplay.'
-          : 'Local browser preview, progress saves only on this device.',
       },
       {
         onToggleHaptics: () => this.toggleHaptics(),
@@ -212,11 +175,7 @@ export class GameScene extends Phaser.Scene {
       },
     );
     this.startOverlay = startOverlay.container;
-    this.startLastScoreText = startOverlay.lastScoreText;
-    this.startLastLevelText = startOverlay.lastLevelText;
-    this.startLastLinesText = startOverlay.lastLinesText;
-    this.startSessionsText = startOverlay.sessionsText;
-    this.startTotalLinesText = startOverlay.totalLinesText;
+    this.startBestText = startOverlay.bestText;
     this.startHapticsToggleText = startOverlay.hapticsToggleText;
     this.startOverlay.setVisible(true);
     this.refreshHapticsToggleText();
@@ -535,14 +494,8 @@ export class GameScene extends Phaser.Scene {
   private syncGameOverState(): void {
     if (this.gameState.gameOver) {
       saveLastScore(this.gameState.score);
-      this.lastScore = this.gameState.score;
-      this.startLastScoreText.setText(`Last score: ${this.lastScore}`);
-      this.lastLevel = this.getSpeedLevel();
-      saveLastLevel(this.lastLevel);
-      this.startLastLevelText.setText(`Last level: ${this.lastLevel}`);
-      this.lastLines = this.gameState.linesCleared;
-      saveLastLines(this.lastLines);
-      this.startLastLinesText.setText(`Last lines: ${this.lastLines}`);
+      saveLastLevel(this.getSpeedLevel());
+      saveLastLines(this.gameState.linesCleared);
       const isNewBest = this.ensureBestScoreSaved();
       this.gameOverScoreText.setText(`Final score: ${this.gameState.score}\nLines: ${this.gameState.linesCleared}\nLevel: ${this.getSpeedLevel()}`);
       this.gameOverBestText.setText(`Best score: ${this.bestScore}`);
@@ -556,6 +509,7 @@ export class GameScene extends Phaser.Scene {
     if (this.gameState.score > this.bestScore) {
       this.bestScore = this.gameState.score;
       saveBestScore(this.bestScore);
+      this.startBestText.setText(`${this.bestScore}`);
       return true;
     }
 
@@ -597,7 +551,6 @@ export class GameScene extends Phaser.Scene {
   private incrementSessionsPlayed(): void {
     this.sessionsPlayed += 1;
     saveSessionsPlayed(this.sessionsPlayed);
-    this.startSessionsText.setText(`Sessions played: ${this.sessionsPlayed}`);
   }
 
   private toggleHaptics(): void {
@@ -631,7 +584,6 @@ export class GameScene extends Phaser.Scene {
     this.previousLinesCleared = this.gameState.linesCleared;
     this.totalLinesCleared += clearedNow;
     saveTotalLinesCleared(this.totalLinesCleared);
-    this.startTotalLinesText.setText(`Total lines cleared: ${this.totalLinesCleared}`);
     this.lineClearFlash.setAlpha(0.22);
     triggerHapticFeedback(16);
     this.showLineClearScorePop(LINE_CLEAR_SCORE_POP[clearedNow] ?? clearedNow * 200);
@@ -709,10 +661,12 @@ export class GameScene extends Phaser.Scene {
     this.lastPreviewSnapshot = nextSnapshot;
     this.previewGraphics.clear();
 
-    const boxWidth = 44;
-    const boxHeight = 44;
-    const boxX = GAME_WIDTH - 62;
-    const boxY = 98;
+    const {
+      boxWidth,
+      boxHeight,
+      boxX,
+      boxY,
+    } = NEXT_PREVIEW_LAYOUT;
 
     this.previewGraphics.fillStyle(LIQUID_GLASS_TOKENS.hudGlassFillAlt, 0.88);
     this.previewGraphics.fillRoundedRect(boxX, boxY, boxWidth, boxHeight, 12);

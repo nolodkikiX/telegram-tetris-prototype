@@ -73,10 +73,11 @@ export function createTouchControls(
   },
 ): TouchControlsElements {
   const safeBottom = getBottomSafeAreaInset();
-  const panelHeight = 92 + safeBottom;
+  const dockReserve = Math.max(16, safeBottom);
+  const panelHeight = 100 + dockReserve;
   const panelTop = GAME_HEIGHT - panelHeight;
-  const pauseRowY = panelTop + 18;
-  const mainRowY = panelTop + 56;
+  const pauseRowY = panelTop + 20;
+  const mainRowY = panelTop + 60;
 
   const panelBackground = scene.add.rectangle(
     GAME_WIDTH / 2,
@@ -90,10 +91,10 @@ export function createTouchControls(
   const panel = scene.add.container(0, 0, [panelBackground]);
 
   const actionControls = [
-    createControlButton(scene, 42, mainRowY, '▼', actions.onSoftDrop, 56, '16px'),
-    createControlButton(scene, 128, mainRowY, '←', actions.onMoveLeft, 52),
-    createControlButton(scene, 180, mainRowY, '⟳', actions.onRotate, 52),
-    createControlButton(scene, 232, mainRowY, '→', actions.onMoveRight, 52),
+    createControlButton(scene, 42, mainRowY, 'v', actions.onSoftDrop, 56, '18px'),
+    createControlButton(scene, 128, mainRowY, '<', actions.onMoveLeft, 52, '20px'),
+    createControlButton(scene, 180, mainRowY, 'ROT', actions.onRotate, 52, '13px'),
+    createControlButton(scene, 232, mainRowY, '>', actions.onMoveRight, 52, '20px'),
     createControlButton(scene, 318, mainRowY, 'DROP', actions.onHardDrop, 64, '14px'),
   ];
 
