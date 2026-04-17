@@ -5,6 +5,7 @@ const HAPTICS_ENABLED_KEY = 'telegram-tetris-haptics-enabled';
 const LAST_SCORE_KEY = 'telegram-tetris-last-score';
 const LAST_LEVEL_KEY = 'telegram-tetris-last-level';
 const LAST_LINES_KEY = 'telegram-tetris-last-lines';
+let activeStorageScopeSuffix = '';
 
 function canUseLocalStorage(): boolean {
   try {
@@ -14,18 +15,61 @@ function canUseLocalStorage(): boolean {
   }
 }
 
-export function loadBestScore(): number {
+function normalizeStorageScopeSuffix(telegramUserId?: number | string | null): string {
+  if (telegramUserId === null || telegramUserId === undefined) {
+    return '';
+  }
+
+  const normalized = String(telegramUserId).trim();
+  return normalized ? `user-${normalized}` : '';
+}
+
+function getStorageKey(baseKey: string): string {
+  return activeStorageScopeSuffix ? `${baseKey}-${activeStorageScopeSuffix}` : baseKey;
+}
+
+function readStorageValue(baseKey: string): string | null {
   if (!canUseLocalStorage()) {
-    return 0;
+    return null;
   }
 
   try {
-    const raw = window.localStorage.getItem(BEST_SCORE_KEY);
-    const parsed = raw ? Number(raw) : 0;
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+    const scopedKey = getStorageKey(baseKey);
+    const scopedValue = window.localStorage.getItem(scopedKey);
+    if (scopedValue !== null) {
+      return scopedValue;
+    }
+
+    if (scopedKey !== baseKey) {
+      return window.localStorage.getItem(baseKey);
+    }
+
+    return null;
   } catch {
-    return 0;
+    return null;
   }
+}
+
+function writeStorageValue(baseKey: string, value: string): void {
+  if (!canUseLocalStorage()) {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(getStorageKey(baseKey), value);
+  } catch {
+    // Silent fallback.
+  }
+}
+
+export function configureStorageScope(telegramUserId?: number | string | null): void {
+  activeStorageScopeSuffix = normalizeStorageScopeSuffix(telegramUserId);
+}
+
+export function loadBestScore(): number {
+  const raw = readStorageValue(BEST_SCORE_KEY);
+  const parsed = raw ? Number(raw) : 0;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 }
 
 export function saveBestScore(score: number): void {
@@ -33,25 +77,13 @@ export function saveBestScore(score: number): void {
     return;
   }
 
-  try {
-    window.localStorage.setItem(BEST_SCORE_KEY, String(score));
-  } catch {
-    // Silent fallback.
-  }
+  writeStorageValue(BEST_SCORE_KEY, String(score));
 }
 
 export function loadSessionsPlayed(): number {
-  if (!canUseLocalStorage()) {
-    return 0;
-  }
-
-  try {
-    const raw = window.localStorage.getItem(SESSIONS_PLAYED_KEY);
-    const parsed = raw ? Number(raw) : 0;
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
-  } catch {
-    return 0;
-  }
+  const raw = readStorageValue(SESSIONS_PLAYED_KEY);
+  const parsed = raw ? Number(raw) : 0;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 }
 
 export function saveSessionsPlayed(count: number): void {
@@ -59,25 +91,13 @@ export function saveSessionsPlayed(count: number): void {
     return;
   }
 
-  try {
-    window.localStorage.setItem(SESSIONS_PLAYED_KEY, String(count));
-  } catch {
-    // Silent fallback.
-  }
+  writeStorageValue(SESSIONS_PLAYED_KEY, String(count));
 }
 
 export function loadTotalLinesCleared(): number {
-  if (!canUseLocalStorage()) {
-    return 0;
-  }
-
-  try {
-    const raw = window.localStorage.getItem(TOTAL_LINES_CLEARED_KEY);
-    const parsed = raw ? Number(raw) : 0;
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
-  } catch {
-    return 0;
-  }
+  const raw = readStorageValue(TOTAL_LINES_CLEARED_KEY);
+  const parsed = raw ? Number(raw) : 0;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 }
 
 export function saveTotalLinesCleared(count: number): void {
@@ -85,24 +105,12 @@ export function saveTotalLinesCleared(count: number): void {
     return;
   }
 
-  try {
-    window.localStorage.setItem(TOTAL_LINES_CLEARED_KEY, String(count));
-  } catch {
-    // Silent fallback.
-  }
+  writeStorageValue(TOTAL_LINES_CLEARED_KEY, String(count));
 }
 
 export function loadHapticsEnabled(): boolean {
-  if (!canUseLocalStorage()) {
-    return true;
-  }
-
-  try {
-    const raw = window.localStorage.getItem(HAPTICS_ENABLED_KEY);
-    return raw === null ? true : raw !== '0';
-  } catch {
-    return true;
-  }
+  const raw = readStorageValue(HAPTICS_ENABLED_KEY);
+  return raw === null ? true : raw !== '0';
 }
 
 export function saveHapticsEnabled(enabled: boolean): void {
@@ -110,25 +118,13 @@ export function saveHapticsEnabled(enabled: boolean): void {
     return;
   }
 
-  try {
-    window.localStorage.setItem(HAPTICS_ENABLED_KEY, enabled ? '1' : '0');
-  } catch {
-    // Silent fallback.
-  }
+  writeStorageValue(HAPTICS_ENABLED_KEY, enabled ? '1' : '0');
 }
 
 export function loadLastScore(): number {
-  if (!canUseLocalStorage()) {
-    return 0;
-  }
-
-  try {
-    const raw = window.localStorage.getItem(LAST_SCORE_KEY);
-    const parsed = raw ? Number(raw) : 0;
-    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
-  } catch {
-    return 0;
-  }
+  const raw = readStorageValue(LAST_SCORE_KEY);
+  const parsed = raw ? Number(raw) : 0;
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
 }
 
 export function saveLastScore(score: number): void {
@@ -136,25 +132,13 @@ export function saveLastScore(score: number): void {
     return;
   }
 
-  try {
-    window.localStorage.setItem(LAST_SCORE_KEY, String(score));
-  } catch {
-    // Silent fallback.
-  }
+  writeStorageValue(LAST_SCORE_KEY, String(score));
 }
 
 export function loadLastLevel(): number {
-  if (!canUseLocalStorage()) {
-    return 0;
-  }
-
-  try {
-    const raw = window.localStorage.getItem(LAST_LEVEL_KEY);
-    const parsed = raw ? Number(raw) : 0;
-    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
-  } catch {
-    return 0;
-  }
+  const raw = readStorageValue(LAST_LEVEL_KEY);
+  const parsed = raw ? Number(raw) : 0;
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
 }
 
 export function saveLastLevel(level: number): void {
@@ -162,25 +146,13 @@ export function saveLastLevel(level: number): void {
     return;
   }
 
-  try {
-    window.localStorage.setItem(LAST_LEVEL_KEY, String(level));
-  } catch {
-    // Silent fallback.
-  }
+  writeStorageValue(LAST_LEVEL_KEY, String(level));
 }
 
 export function loadLastLines(): number {
-  if (!canUseLocalStorage()) {
-    return 0;
-  }
-
-  try {
-    const raw = window.localStorage.getItem(LAST_LINES_KEY);
-    const parsed = raw ? Number(raw) : 0;
-    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
-  } catch {
-    return 0;
-  }
+  const raw = readStorageValue(LAST_LINES_KEY);
+  const parsed = raw ? Number(raw) : 0;
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
 }
 
 export function saveLastLines(lines: number): void {
@@ -188,9 +160,5 @@ export function saveLastLines(lines: number): void {
     return;
   }
 
-  try {
-    window.localStorage.setItem(LAST_LINES_KEY, String(lines));
-  } catch {
-    // Silent fallback.
-  }
+  writeStorageValue(LAST_LINES_KEY, String(lines));
 }

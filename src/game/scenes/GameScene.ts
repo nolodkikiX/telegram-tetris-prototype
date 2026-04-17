@@ -170,8 +170,15 @@ export class GameScene extends Phaser.Scene {
       fontFamily: 'Arial',
       fontSize: '13px',
     }).setOrigin(0.5);
-
     this.createTouchControls();
+    this.children.list.forEach((child) => {
+      if (
+        child instanceof Phaser.GameObjects.Text
+        && child.text.startsWith('Desktop:')
+      ) {
+        child.setVisible(false);
+      }
+    });
 
     const gameOverOverlay = createGameOverOverlay(this, {
       onRestart: () => this.restartGame(),
@@ -212,6 +219,10 @@ export class GameScene extends Phaser.Scene {
     this.startTotalLinesText = startOverlay.totalLinesText;
     this.startHapticsToggleText = startOverlay.hapticsToggleText;
     this.startOverlay.setVisible(true);
+    this.refreshHapticsToggleText();
+    this.hud.nextCard.setDepth(4);
+    this.previewGraphics.setDepth(5);
+    this.hud.nextLabelText.setDepth(6);
     applyUiTextClarity(this.children.list);
 
     this.visibilityHandler = () => this.handleVisibilityChange();

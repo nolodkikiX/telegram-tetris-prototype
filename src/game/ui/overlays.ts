@@ -42,98 +42,96 @@ export function createStartOverlay(
     onStart: () => void;
   },
 ): StartOverlayElements {
-  const container = scene.add.container(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 4);
-  const background = scene.add.rectangle(0, 0, 268, 286, 0x020617, 0.94);
+  const container = scene.add.container(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 36);
+  const background = scene.add.rectangle(0, 0, 268, 280, 0x020617, 0.94);
   background.setStrokeStyle(2, 0x60a5fa, 1);
 
-  const title = scene.add.text(0, -46, 'Telegram Tetris', {
+  const title = scene.add.text(0, -90, 'Telegram Tetris', {
     color: '#f9fafb',
     fontFamily: 'Arial',
-    fontSize: '28px',
+    fontSize: '24px',
   }).setOrigin(0.5);
 
-  const bestText = scene.add.text(0, -20, `Best score: ${data.bestScore}`, {
+  const bestText = scene.add.text(-88, -56, `Best score: ${data.bestScore}`, {
     color: '#cbd5e1',
     fontFamily: 'Arial',
-    fontSize: '16px',
-  }).setOrigin(0.5);
+    fontSize: '13px',
+  }).setOrigin(0, 0.5);
 
-  const lastScoreText = scene.add.text(0, -1, `Last score: ${data.lastScore}`, {
+  const lastScoreText = scene.add.text(-88, -34, `Last score: ${data.lastScore}`, {
     color: '#cbd5e1',
     fontFamily: 'Arial',
-    fontSize: '14px',
-  }).setOrigin(0.5);
+    fontSize: '13px',
+  }).setOrigin(0, 0.5);
 
-  const lastLevelText = scene.add.text(0, 17, `Last level: ${data.lastLevel}`, {
+  const lastLevelText = scene.add.text(-88, -12, `Last level: ${data.lastLevel}`, {
     color: '#cbd5e1',
     fontFamily: 'Arial',
-    fontSize: '14px',
-  }).setOrigin(0.5);
+    fontSize: '13px',
+  }).setOrigin(0, 0.5);
 
-  const lastLinesText = scene.add.text(0, 35, `Last lines: ${data.lastLines}`, {
+  const lastLinesText = scene.add.text(14, -56, `Last lines: ${data.lastLines}`, {
     color: '#cbd5e1',
     fontFamily: 'Arial',
-    fontSize: '14px',
-  }).setOrigin(0.5);
+    fontSize: '13px',
+  }).setOrigin(0, 0.5);
 
-  const sessionsText = scene.add.text(0, 55, `Sessions played: ${data.sessionsPlayed}`, {
+  const sessionsText = scene.add.text(14, -34, `Sessions: ${data.sessionsPlayed}`, {
     color: '#94a3b8',
     fontFamily: 'Arial',
-    fontSize: '14px',
-  }).setOrigin(0.5);
+    fontSize: '13px',
+  }).setOrigin(0, 0.5);
 
-  const totalLinesText = scene.add.text(0, 75, `Total lines cleared: ${data.totalLinesCleared}`, {
+  const totalLinesText = scene.add.text(14, -12, `Total lines: ${data.totalLinesCleared}`, {
     color: '#94a3b8',
     fontFamily: 'Arial',
-    fontSize: '14px',
-  }).setOrigin(0.5);
+    fontSize: '13px',
+  }).setOrigin(0, 0.5);
 
-  const objectiveHint = scene.add.text(0, 100, 'Stack pieces and clear full lines.', {
+  const objectiveHint = scene.add.text(0, 18, 'Stack pieces and clear full lines.', {
     color: '#93c5fd',
     fontFamily: 'Arial',
     fontSize: '15px',
     align: 'center',
-    wordWrap: { width: 220 },
-  }).setOrigin(0.5);
-
-  const desktopHint = scene.add.text(0, 128, 'Desktop: arrows move, Space drops, P pauses.', {
-    color: '#cbd5e1',
-    fontFamily: 'Arial',
-    fontSize: '13px',
-    align: 'center',
     wordWrap: { width: 228 },
   }).setOrigin(0.5);
 
-  const touchHint = scene.add.text(0, 148, 'Touch: use the buttons below to move, rotate, drop.', {
-    color: '#cbd5e1',
-    fontFamily: 'Arial',
-    fontSize: '13px',
-    align: 'center',
-    wordWrap: { width: 228 },
-  }).setOrigin(0.5);
+  const desktopHint = scene.add.text(
+    0,
+    42,
+    'Desktop: arrows + Space + P\nTouch: buttons below move, rotate, drop',
+    {
+      color: '#cbd5e1',
+      fontFamily: 'Arial',
+      fontSize: '11px',
+      align: 'center',
+      wordWrap: { width: 224 },
+      lineSpacing: 2,
+    },
+  ).setOrigin(0.5);
 
-  const runtimeHint = scene.add.text(0, 168, data.runtimeHint, {
+  const runtimeHint = scene.add.text(0, 74, data.runtimeHint, {
     color: '#94a3b8',
     fontFamily: 'Arial',
     fontSize: '12px',
     align: 'center',
-    wordWrap: { width: 228 },
+    wordWrap: { width: 220 },
   }).setOrigin(0.5);
 
-  const hapticsToggleText = scene.add.text(0, 192, '', {
+  const hapticsToggleText = scene.add.text(0, 104, '', {
     color: '#f8fafc',
     fontFamily: 'Arial',
-    fontSize: '14px',
+    fontSize: '13px',
     backgroundColor: '#0f172a',
-    padding: { left: 10, right: 10, top: 6, bottom: 6 },
+    padding: { left: 10, right: 10, top: 5, bottom: 5 },
   }).setOrigin(0.5);
   hapticsToggleText.setInteractive({ useHandCursor: true });
   hapticsToggleText.on('pointerdown', actions.onToggleHaptics);
 
-  const cta = scene.add.text(0, 228, 'Press Enter or tap move, rotate, or drop', {
+  const cta = scene.add.text(0, 136, 'Press Enter or tap to start', {
     color: '#f8fafc',
     fontFamily: 'Arial',
-    fontSize: '15px',
+    fontSize: '14px',
     backgroundColor: '#1d4ed8',
     padding: { left: 14, right: 14, top: 8, bottom: 8 },
   }).setOrigin(0.5);
@@ -151,7 +149,6 @@ export function createStartOverlay(
     totalLinesText,
     objectiveHint,
     desktopHint,
-    touchHint,
     runtimeHint,
     hapticsToggleText,
     cta,

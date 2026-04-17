@@ -5,7 +5,10 @@ import {
   miniAppReady,
   mountMiniAppSync,
   mountViewport,
+  retrieveLaunchParams,
 } from '@telegram-apps/sdk';
+
+import { configureStorageScope } from '../app/storage';
 
 export interface TelegramShellState {
   isTelegram: boolean;
@@ -14,8 +17,17 @@ export interface TelegramShellState {
   label: 'Telegram Mini App' | 'Browser preview';
 }
 
+function getTelegramUserId(): number | null {
+  try {
+    return retrieveLaunchParams(true).tgWebAppData?.user?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function bootstrapTelegramMiniApp(): Promise<TelegramShellState> {
   if (!isTMA()) {
+    configureStorageScope(null);
     return {
       isTelegram: false,
       initialized: false,
@@ -27,6 +39,7 @@ export async function bootstrapTelegramMiniApp(): Promise<TelegramShellState> {
   try {
     const cleanup = init();
     void cleanup;
+    configureStorageScope(getTelegramUserId());
 
     let viewportMounted = false;
 
@@ -54,6 +67,7 @@ export async function bootstrapTelegramMiniApp(): Promise<TelegramShellState> {
       label: 'Telegram Mini App',
     };
   } catch {
+    configureStorageScope(null);
     return {
       isTelegram: false,
       initialized: false,
