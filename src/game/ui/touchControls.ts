@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 
 import { GAME_HEIGHT, GAME_WIDTH } from '../../app/config';
+import { LIQUID_GLASS_TOKENS } from './visualTokens';
 
 export interface TouchControlVisual {
   container: Phaser.GameObjects.Container;
@@ -36,28 +37,37 @@ function createControlButton(
   y: number,
   label: string,
   onPress: () => void,
-  width = 52,
-  fontSize?: string,
+  width = 54,
+  height = 42,
+  fontSize = '14px',
 ): TouchControlVisual {
   const button = scene.add.container(x, y);
-  const background = scene.add.rectangle(0, 0, width, 44, 0x1e293b, 0.95)
-    .setStrokeStyle(2, 0x475569, 1)
+  const background = scene.add.rectangle(0, 0, width, height, LIQUID_GLASS_TOKENS.controlFill, 0.96)
+    .setStrokeStyle(1, LIQUID_GLASS_TOKENS.controlStroke, 0.95)
     .setInteractive({ useHandCursor: true });
-
+  const highlight = scene.add.rectangle(
+    0,
+    -height * 0.26,
+    width - 10,
+    6,
+    LIQUID_GLASS_TOKENS.controlHighlight,
+    0.1,
+  );
   const text = scene.add.text(0, 0, label, {
     color: '#f8fafc',
     fontFamily: 'Arial',
-    fontSize: fontSize ?? (label === 'DROP' ? '14px' : '20px'),
+    fontSize,
+    fontStyle: 'bold',
   }).setOrigin(0.5);
 
   background.on('pointerdown', () => {
-    background.setFillStyle(0x334155, 1);
+    background.setFillStyle(LIQUID_GLASS_TOKENS.controlFillPressed, 1);
     onPress();
   });
-  background.on('pointerup', () => background.setFillStyle(0x1e293b, 0.95));
-  background.on('pointerout', () => background.setFillStyle(0x1e293b, 0.95));
+  background.on('pointerup', () => background.setFillStyle(LIQUID_GLASS_TOKENS.controlFill, 0.96));
+  background.on('pointerout', () => background.setFillStyle(LIQUID_GLASS_TOKENS.controlFill, 0.96));
 
-  button.add([background, text]);
+  button.add([background, highlight, text]);
   return { container: button, background, text };
 }
 
@@ -71,34 +81,43 @@ export function createTouchControls(
     onHardDrop: () => void;
     onPauseToggle: () => void;
   },
+  layout: {
+    boardBottomY: number;
+  },
 ): TouchControlsElements {
   const safeBottom = getBottomSafeAreaInset();
-  const dockReserve = Math.max(16, safeBottom);
-  const panelHeight = 100 + dockReserve;
-  const panelTop = GAME_HEIGHT - panelHeight;
-  const pauseRowY = panelTop + 20;
-  const mainRowY = panelTop + 60;
+  const panelTop = layout.boardBottomY;
+  const panelHeight = Math.max(0, GAME_HEIGHT - panelTop);
+  const contentBottom = GAME_HEIGHT - Math.max(12, safeBottom);
+  const mainRowY = panelTop + Math.min(58, Math.floor((contentBottom - panelTop) * 0.62));
+  const topRowY = panelTop + Math.min(24, Math.floor((contentBottom - panelTop) * 0.26));
 
   const panelBackground = scene.add.rectangle(
     GAME_WIDTH / 2,
     panelTop + panelHeight / 2,
     GAME_WIDTH,
     panelHeight,
-    0x020617,
+    0x050b19,
     0.96,
-  ).setStrokeStyle(1, 0x1e293b, 1);
+  ).setStrokeStyle(1, 0x162236, 1);
 
   const panel = scene.add.container(0, 0, [panelBackground]);
 
+  const softDropControl = createControlButton(scene, 54, mainRowY, 'SOFT', actions.onSoftDrop, 60, 42, '11px');
+  const leftControl = createControlButton(scene, 140, mainRowY, '<', actions.onMoveLeft, 58, 44, '20px');
+  const rotateControl = createControlButton(scene, 180, topRowY, 'ROT', actions.onRotate, 72, 34, '11px');
+  const rightControl = createControlButton(scene, 220, mainRowY, '>', actions.onMoveRight, 58, 44, '20px');
+  const hardDropControl = createControlButton(scene, 306, mainRowY, 'DROP', actions.onHardDrop, 64, 42, '12px');
+
   const actionControls = [
-    createControlButton(scene, 42, mainRowY, 'v', actions.onSoftDrop, 56, '18px'),
-    createControlButton(scene, 128, mainRowY, '<', actions.onMoveLeft, 52, '20px'),
-    createControlButton(scene, 180, mainRowY, 'ROT', actions.onRotate, 52, '13px'),
-    createControlButton(scene, 232, mainRowY, '>', actions.onMoveRight, 52, '20px'),
-    createControlButton(scene, 318, mainRowY, 'DROP', actions.onHardDrop, 64, '14px'),
+    softDropControl,
+    leftControl,
+    rotateControl,
+    rightControl,
+    hardDropControl,
   ];
 
-  const pauseControl = createControlButton(scene, 318, pauseRowY, 'Pause', actions.onPauseToggle, 64, '13px');
+  const pauseControl = createControlButton(scene, 306, topRowY, 'PAUSE', actions.onPauseToggle, 64, 34, '10px');
 
   panel.add([...actionControls.map((control) => control.container), pauseControl.container]);
 
@@ -110,7 +129,7 @@ export function createTouchControls(
 }
 
 export function refreshTouchPauseToggleText(pauseControl: TouchControlVisual, isManuallyPaused: boolean): void {
-  pauseControl.text.setText(isManuallyPaused ? 'Resume' : 'Pause');
+  pauseControl.text.setText(isManuallyPaused ? 'RESUME' : 'PAUSE');
 }
 
 export function refreshTouchPauseControlState(

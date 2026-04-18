@@ -13,9 +13,6 @@ import { triggerHapticFeedback } from '../../app/haptics';
 import {
   loadBestScore,
   loadHapticsEnabled,
-  loadLastLevel,
-  loadLastLines,
-  loadLastScore,
   loadSessionsPlayed,
   loadTotalLinesCleared,
   saveBestScore,
@@ -114,9 +111,6 @@ export class GameScene extends Phaser.Scene {
 
   create(): void {
     this.bestScore = loadBestScore();
-    loadLastScore();
-    loadLastLevel();
-    loadLastLines();
     this.sessionsPlayed = loadSessionsPlayed();
     this.totalLinesCleared = loadTotalLinesCleared();
     this.hapticsEnabled = loadHapticsEnabled();
@@ -160,7 +154,9 @@ export class GameScene extends Phaser.Scene {
     this.gameOverNewBestText = gameOverOverlay.newBestText;
     this.gameOverOverlay.setVisible(false);
 
-    const pausedOverlay = createPausedOverlay(this);
+    const pausedOverlay = createPausedOverlay(this, {
+      onResume: () => this.toggleManualPause(),
+    });
     this.pausedOverlay = pausedOverlay.container;
     this.pausedOverlay.setVisible(false);
 
@@ -387,6 +383,8 @@ export class GameScene extends Phaser.Scene {
 
         this.toggleManualPause();
       },
+    }, {
+      boardBottomY: BOARD_ORIGIN_Y + BOARD_PIXEL_HEIGHT,
     });
 
     this.touchActionControls = touchControls.actionControls;
@@ -497,8 +495,8 @@ export class GameScene extends Phaser.Scene {
       saveLastLevel(this.getSpeedLevel());
       saveLastLines(this.gameState.linesCleared);
       const isNewBest = this.ensureBestScoreSaved();
-      this.gameOverScoreText.setText(`Final score: ${this.gameState.score}\nLines: ${this.gameState.linesCleared}\nLevel: ${this.getSpeedLevel()}`);
-      this.gameOverBestText.setText(`Best score: ${this.bestScore}`);
+      this.gameOverScoreText.setText(`${this.gameState.score}`);
+      this.gameOverBestText.setText(`Best ${this.bestScore}  •  Lines ${this.gameState.linesCleared}  •  Lv ${this.getSpeedLevel()}`);
       this.gameOverNewBestText.setVisible(isNewBest);
       this.refreshTouchPauseControlState();
       this.gameOverOverlay.setVisible(true);
@@ -560,7 +558,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private refreshHapticsToggleText(): void {
-    this.startHapticsToggleText.setText(`Haptics: ${this.hapticsEnabled ? 'On' : 'Off'}`);
+    this.startHapticsToggleText.setText(`Haptics ${this.hapticsEnabled ? 'On' : 'Off'}`);
   }
 
   private refreshTouchPauseToggleText(): void {
